@@ -7,17 +7,17 @@ scalaVersion := "2.12.10"
 fork in run := true
 
 scalacOptions ++= Seq("-deprecation", "-feature")
-
+scalacOptions += "-Ylog-classpath"
 resolvers += Resolver.bintrayIvyRepo("com.eed3si9n", "sbt-plugins")
 
 libraryDependencies ++= Seq(
-  "dev.zio" %% "zio" % "1.0.0-RC17",
   "com.github.pureconfig" %% "pureconfig" % "0.12.1",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "org.log4s" %% "log4s" % "1.8.2",
-  "org.apache.spark" %% "spark-sql" % "2.4.5"
+  "org.apache.spark" %% "spark-sql" % "2.4.5"  % "provided"
 )
 
+libraryDependencies ~= { _.map(_.exclude("org.slf4j", "slf4j-log4j12"))}
+publishTo := Some(Resolver.file("file", new File("C:\\Users\\Indra\\Documents\\ingestion")))
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) =>
     xs map {_.toLowerCase} match {
