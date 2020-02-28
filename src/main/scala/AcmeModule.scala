@@ -4,7 +4,8 @@ import AcmeModule.Service
 import zio.ZIO
 
 import scala.util.matching.Regex
-
+import org.apache.hadoop.fs._
+import org.apache.spark.sql.SparkSession
 trait AcmeModule extends Serializable {
   val acmeModule: Service[Any]
 }
@@ -14,28 +15,45 @@ object Pattern {
   val masterPattern: Regex     = "(\\d{1,4}([.\\-])\\d{1,2}([.\\-])\\d{1,4})".r
 }
 
+object SparkConfiguration {
+  val spark = SparkSession
+    .builder()
+    .appName("Introduction to RDDs")
+    .config("spark.master", "local")
+    .getOrCreate()
+
+  // the SparkContext is the entry point for low-level APIs, including RDDs
+  val sc = spark.sparkContext
+}
+
 object AcmeModule {
   import Pattern._
+  import SparkConfiguration._
   case class Acme() {
-    /*    private def readHDFSDirectory(strPath: String): Option[List[FileStatus]] = {
+
+    private def readHDFSDirectory(strPath: String): Option[List[FileStatus]] = {
       val directoryPath = new Path(strPath)
       val fileSystem    = FileSystem.get(sc.hadoopConfiguration)
       if (fileSystem.isDirectory(directoryPath))
         Some(fileSystem.listStatus(directoryPath).toList)
       else None
     }
+
     private def processHDFSDirectory(stage: List[FileStatus],
                                      pattern: Regex): List[Option[String]] =
-      stage.map(_.getPath.getName).map(name => pattern findFirstIn name)*/
+      stage.map(_.getPath.getName).map(name => pattern findFirstIn name)
 
-    private def readDirectory(path: String): Option[File] = {
+    private def readDirectory(path: String, filePatterns: String = ""): Option[File] = {
       val file = new File(path)
-      if (file.isDirectory) Some(file) else None
+      if (file.isDirectory) Some(file)
+      else None
     }
+
     private def processDirectory(stage: File, pattern: Regex): List[Option[String]] = {
       val files = stage.listFiles().map(_.getName)
       files.map(name => pattern findFirstIn name).toList
     }
+
     private def validateDirectories(
       stagingDirectory: List[Option[String]],
       rawDirectory: List[Option[String]],
@@ -63,7 +81,7 @@ object AcmeModule {
       csvContent
     }
 
-    /*    def executeProcessHDFS(stagingPath: String, rawPath: String, masterPath: String): Unit = {
+    def executeProcessHDFS(stagingPath: String, rawPath: String, masterPath: String): Unit = {
       val stagingHDFSDirectory: Option[List[FileStatus]] = readHDFSDirectory(stagingPath)
       val rawHDFSDirectory: Option[List[FileStatus]]     = readHDFSDirectory(rawPath)
       val masterHDFSrDirectory: Option[List[FileStatus]] = readHDFSDirectory(masterPath)
@@ -80,12 +98,20 @@ object AcmeModule {
       } else {
         AcmeLogger.logger.error("An error occurred")
       }
-    }*/
+    }
+
+    def transformPathToDirectory(path: String): (String, String) = {
+      val pathArray       = path.split("/").map(_.trim)
+      val directoryPath   = pathArray.take(pathArray.size - 1).mkString("/")
+      val fileNamePattern = pathArray.takeRight(1).mkString
+      (directoryPath, fileNamePattern)
+    }
 
     def executeProcess(stagingPath: String, rawPath: String, masterPath: String): Unit = {
-      val stagingDirectory: Option[File] = readDirectory(stagingPath)
-      val rawDirectory: Option[File]     = readDirectory(rawPath)
-      val masterDirectory: Option[File]  = readDirectory(masterPath)
+      val (transformedStagingPath, filePattern) = transformPathToDirectory(stagingPath)
+      val stagingDirectory: Option[File]        = readDirectory(transformedStagingPath, filePattern)
+      val rawDirectory: Option[File]            = readDirectory(rawPath)
+      val masterDirectory: Option[File]         = readDirectory(masterPath)
       val result = for {
         staging <- stagingDirectory
         raw     <- rawDirectory

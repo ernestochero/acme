@@ -15,7 +15,7 @@ libraryDependencies ++= Seq(
   "com.github.pureconfig" %% "pureconfig" % "0.12.1",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "org.log4s" %% "log4s" % "1.8.2",
-  "org.apache.hadoop" % "hadoop-hdfs" % "3.2.1"
+  "org.apache.spark" %% "spark-sql" % "2.4.5"
 )
 
 assemblyMergeStrategy in assembly := {
