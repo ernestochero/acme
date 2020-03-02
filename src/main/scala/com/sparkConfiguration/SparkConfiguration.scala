@@ -11,5 +11,5 @@ object SparkConfiguration {
     .getOrCreate()
 
   // the SparkContext is the entry point for low-level APIs, including RDDs
-  val sc: SparkContext = spark.sparkContext
+  implicit val sc: SparkContext = spark.sparkContext
 }

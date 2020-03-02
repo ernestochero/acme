@@ -2,7 +2,7 @@ package com.acmeModule
 
 import java.io.{ File, FileFilter }
 
-import org.apache.hadoop.fs.{ FileStatus, FileSystem, Path, PathFilter }
+import org.apache.hadoop.fs.{ FileSystem, Path }
 import org.apache.spark.SparkContext
 import com.models.Stage
 import com.utils.Pattern._
@@ -26,17 +26,11 @@ object AcmeModule {
 
   private def processHDFSDirectory(filePath: String,
                                    fileSystem: FileSystem,
-                                   fileDatePattern: Regex,
-                                   fileNamePattern: String = ""): List[Option[String]] =
+                                   fileDatePattern: Regex): List[Option[String]] = {
     // https://stackoverflow.com/questions/24647992/wildcard-in-hadoops-filesystem-listing-api-calls
-    /*  val pathFilter = new PathFilter {
-      override def accept(path: Path): Boolean = ???
-    }
-    val filteredFileNames =
-      if (fileNamePattern.isEmpty) fileSystem.listStatus(new Path(filePath))
-      else fileSystem.listStatus(new Path(filePath), )
-    stage.map(_.getPath.getName).map(name => fileDatePattern findFirstIn name)*/
-    ???
+    val fileStatus = fileSystem.globStatus(new Path(filePath))
+    fileStatus.map(_.getPath.getName).map(name => fileDatePattern findFirstIn name).toList
+  }
 
   private def readDirectory(path: String): Option[File] = {
     val file = new File(path)
@@ -84,7 +78,8 @@ object AcmeModule {
   private def executeProcessHDFS(stagingPath: String, rawPath: String, masterPath: String)(
     implicit sparkContext: SparkContext
   ): Unit = {
-    val stagingHDFSDirectory: Option[FileSystem] = readHDFSDirectory(stagingPath)
+    val (transformedStagingPath, _)              = transformPathToDirectory(stagingPath)
+    val stagingHDFSDirectory: Option[FileSystem] = readHDFSDirectory(transformedStagingPath)
     val rawHDFSDirectory: Option[FileSystem]     = readHDFSDirectory(rawPath)
     val masterHDFSrDirectory: Option[FileSystem] = readHDFSDirectory(masterPath)
     val result = for {
@@ -131,6 +126,22 @@ object AcmeModule {
     } else {
       println("An error occurred")
     }
+  }
+
+  def showInformationHDFS(csvPath: String): Unit = {
+    import com.sparkConfiguration.SparkConfiguration.sc
+    println(s"Initializing HDFS Acme Program")
+    val stageList: List[Stage] = AcmeModule.readCSV(csvPath)
+    stageList.foreach(st => {
+      println("########################################")
+      println(s"Input Values : $st")
+      AcmeModule.executeProcessHDFS(
+        st.stagingPath,
+        st.rawPath,
+        st.masterPath
+      )
+      println("########################################")
+    })
   }
 
   def showInformation(csvPath: String): Unit = {

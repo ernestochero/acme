@@ -12,7 +12,6 @@ resolvers += Resolver.bintrayIvyRepo("com.eed3si9n", "sbt-plugins")
 
 libraryDependencies ++= Seq(
   "com.github.pureconfig" %% "pureconfig" % "0.12.1",
-  "ch.qos.logback" % "logback-classic" % "1.2.3",
   "org.apache.spark" %% "spark-sql" % "2.4.5"  % "provided"
 )
 
