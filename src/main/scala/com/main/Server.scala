@@ -1,6 +1,10 @@
+package com.main
+
+import com.acmeModule.AcmeModule
+
 object Server extends App {
   override def main(args: Array[String]): Unit =
-    AcmeModule.showInformation("C:\\Users\\Indra\\Documents\\ingestion\\path.csv")
+    AcmeModule.showInformation("/home/ernestochero/Documents/notes/testing-path.csv")
 
   /*    val configuration = ConfigurationModule.configuration
     configuration match {

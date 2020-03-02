@@ -1,4 +1,6 @@
-import pureconfig._
+package com.configurationModule
+
+import pureconfig.ConfigSource
 import pureconfig.generic.auto._
 object ConfigurationModule {
   final case class ConfigurationError(message: String) extends Exception
