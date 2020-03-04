@@ -2,7 +2,7 @@ name := "acme"
 
 version := "0.1"
 
-scalaVersion := "2.12.10"
+scalaVersion := "2.11.8"
 
 fork in run := true
 
@@ -11,8 +11,7 @@ scalacOptions += "-Ylog-classpath"
 resolvers += Resolver.bintrayIvyRepo("com.eed3si9n", "sbt-plugins")
 
 libraryDependencies ++= Seq(
-  "com.github.pureconfig" %% "pureconfig" % "0.12.1",
-  "org.apache.spark" %% "spark-sql" % "2.4.5"  % "provided"
+  "org.apache.spark" %% "spark-sql" % "2.2.0"  % "provided"
 )
 
 libraryDependencies ~= { _.map(_.exclude("org.slf4j", "slf4j-log4j12"))}

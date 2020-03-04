@@ -7,18 +7,18 @@ import org.apache.spark.SparkContext
 import com.models.Stage
 import com.utils.Pattern._
 import org.apache.commons.io.filefilter.WildcardFileFilter
-
+import scala.util.{ Either, Left, Right }
 import scala.util.matching.Regex
 
 object AcmeModule {
   private def readHDFSDirectory(
     strPath: String
-  )(implicit sparkContext: SparkContext): Option[FileSystem] = {
-    val directoryPath = new Path(strPath)
-    val fileSystem    = FileSystem.get(sparkContext.hadoopConfiguration)
+  )(implicit sparkContext: SparkContext): Either[Exception, FileSystem] = {
+    val directoryPath          = new Path(strPath)
+    val fileSystem: FileSystem = FileSystem.get(sparkContext.hadoopConfiguration)
     if (fileSystem.isDirectory(directoryPath))
-      Some(fileSystem)
-    else None
+      Right(fileSystem)
+    else Left(new Exception(s"$strPath is not a directory"))
   }
 
   implicit lazy val wildcardFileFilter: (String => FileFilter) = (fileNamePattern: String) =>
@@ -48,6 +48,39 @@ object AcmeModule {
     filteredFileNames.map(name => fileDatePattern findFirstIn name).toList
   }
 
+  private def parseResult(booleanResult: Boolean): String =
+    if (booleanResult) "Succeeded"
+    else "Failed"
+
+  private def showResult(stageNameA: String,
+                         stageA: List[Option[String]],
+                         stageNameB: String,
+                         stageB: List[Option[String]]): Unit = {
+    val stageASize   = stageA.count(_.isDefined)
+    val stageBSize   = stageB.count(_.isDefined)
+    val resultBySize = stageASize == stageBSize
+    val result       = parseResult(resultBySize)
+    println("-" * 50)
+    println(s"$stageA => [$stageASize] vs $stageB => [$stageBSize] = ($result)")
+    println("-" * 50)
+  }
+
+  private def validateDirectoriesResult(stagingDirectory: List[Option[String]],
+                                        rawDirectory: List[Option[String]],
+                                        masterDirectory: List[Option[String]]): Unit = {
+    // Staging vs Raw
+    showResult(stageNameA = "Staging",
+               stageA = stagingDirectory,
+               stageNameB = "Raw",
+               stageB = rawDirectory)
+
+    // Raw vs Master
+    showResult(stageNameA = "Raw",
+               stageA = rawDirectory,
+               stageNameB = "Master",
+               stageB = masterDirectory)
+  }
+
   private def validateDirectories(
     stagingDirectory: List[Option[String]],
     rawDirectory: List[Option[String]],
@@ -75,25 +108,24 @@ object AcmeModule {
     csvContent
   }
 
-  private def executeProcessHDFS(stagingPath: String, rawPath: String, masterPath: String)(
+  def executeProcessHDFS(stagingPath: String, rawPath: String, masterPath: String)(
     implicit sparkContext: SparkContext
   ): Unit = {
-    val (transformedStagingPath, _)              = transformPathToDirectory(stagingPath)
-    val stagingHDFSDirectory: Option[FileSystem] = readHDFSDirectory(transformedStagingPath)
-    val rawHDFSDirectory: Option[FileSystem]     = readHDFSDirectory(rawPath)
-    val masterHDFSrDirectory: Option[FileSystem] = readHDFSDirectory(masterPath)
-    val result = for {
-      stagingHDFS <- stagingHDFSDirectory
-      rawHDFS     <- rawHDFSDirectory
-      masterHDFS  <- masterHDFSrDirectory
-      resultStagingHDFS = processHDFSDirectory(stagingPath, stagingHDFS, stagingRawDatePattern)
-      resultRawHDFS     = processHDFSDirectory(rawPath, rawHDFS, stagingRawDatePattern)
-      resultMasterHDFS  = processHDFSDirectory(masterPath, masterHDFS, masterDatePattern)
-    } yield validateDirectories(resultStagingHDFS, resultRawHDFS, resultMasterHDFS)
-    if (result.getOrElse(false)) {
-      println("Success!! we have the same number of elements")
-    } else {
-      println("An error occurred")
+    val (transformedStagingPath, _) = transformPathToDirectory(stagingPath)
+    val stagingHDFSDirectory: Either[Exception, FileSystem] = readHDFSDirectory(
+      transformedStagingPath
+    )
+    val rawHDFSDirectory: Either[Exception, FileSystem]     = readHDFSDirectory(rawPath)
+    val masterHDFSrDirectory: Either[Exception, FileSystem] = readHDFSDirectory(masterPath)
+    for {
+      stagingHDFS <- stagingHDFSDirectory.right
+      rawHDFS     <- rawHDFSDirectory.right
+      masterHDFS  <- masterHDFSrDirectory.right
+    } yield {
+      val resultStagingHDFS = processHDFSDirectory(stagingPath, stagingHDFS, stagingRawDatePattern)
+      val resultRawHDFS     = processHDFSDirectory(rawPath, rawHDFS, stagingRawDatePattern)
+      val resultMasterHDFS  = processHDFSDirectory(masterPath, masterHDFS, masterDatePattern)
+      validateDirectoriesResult(resultStagingHDFS, resultRawHDFS, resultMasterHDFS)
     }
   }
 
@@ -133,14 +165,14 @@ object AcmeModule {
     println(s"Initializing HDFS Acme Program")
     val stageList: List[Stage] = AcmeModule.readCSV(csvPath)
     stageList.foreach(st => {
-      println("########################################")
+      println("#" * 50)
       println(s"Input Values : $st")
       AcmeModule.executeProcessHDFS(
         st.stagingPath,
         st.rawPath,
         st.masterPath
       )
-      println("########################################")
+      println("#" * 50)
     })
   }
 
